@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#070714">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Neon Orbit: Gravity Dash</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #030308;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            color: #ffffff;
+        }
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        /* Desktop Phone Frame & Responsive Mobile Fullscreen */
+        #app-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at center, #111128 0%, #030308 100%);
+        }
+        #phone-frame {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #070714;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        @media (min-width: 500px) {
+            #phone-frame {
+                height: 92vh;
+                max-height: 880px;
+                aspect-ratio: 9 / 16;
+                width: auto;
+                border-radius: 36px;
+                border: 6px solid #1e1e38;
+                box-shadow: 0 0 60px rgba(0, 243, 255, 0.15), inset 0 0 20px rgba(0, 0, 0, 0.8);
+            }
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        /* Neon Glow Utilities */
+        .neon-text-cyan {
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.8), 0 0 25px rgba(0, 243, 255, 0.4);
+        }
+        .neon-text-pink {
+            text-shadow: 0 0 10px rgba(255, 0, 128, 0.8), 0 0 25px rgba(255, 0, 128, 0.4);
+        }
+        .neon-box-cyan {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.35), inset 0 0 10px rgba(0, 243, 255, 0.15);
+            border: 1.5px solid rgba(0, 243, 255, 0.6);
+        }
+        .neon-btn-primary {
+            background: linear-gradient(135deg, #00f3ff 0%, #0077ff 100%);
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.5);
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .neon-btn-primary:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 12px rgba(0, 243, 255, 0.8);
+        }
+        .glass-panel {
+            background: rgba(13, 14, 32, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        @keyframes pulse-slow {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.04); opacity: 0.9; }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 2.2s infinite ease-in-out;
+        }
+        /* Custom Scrollbar for Modals */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.03);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, 0.4);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-wrapper">
+    <div id="phone-frame">
+        
+        <!-- GAME CANVAS -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- TOP HUD (In-Game & Menu Overlay) -->
+        <div id="hud-layer" class="absolute top-0 left-0 w-full p-4 flex justify-between items-center pointer-events-none z-10">
+            <!-- Left: Score / High Score -->
+            <div class="flex flex-col">
+                <div id="hud-score" class="font-orbitron text-3xl font-black text-white neon-text-cyan hidden">0</div>
+                <div id="hud-combo" class="font-orbitron text-xs font-bold text-amber-400 tracking-wider hidden">COMBO x1</div>
+                <div id="menu-best" class="glass-panel px-3 py-1.5 rounded-full flex items-center gap-2 pointer-events-auto">
+                    <span class="text-xs text-slate-400 font-semibold">BEST</span>
+                    <span id="best-score-val" class="font-orbitron text-sm font-bold text-cyan-400">0</span>
+                </div>
+            </div>
+
+            <!-- Right: Shards & Play Store Guide Trigger -->
+            <div class="flex items-center gap-2 pointer-events-auto">
+                <div class="glass-panel px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-amber-400/30">
+                    <!-- Star Shard SVG -->
+                    <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="12,2 15,9 22,12 15,15 12,22 9,15 2,12 9,9"/>
+                    </svg>
+                    <span id="shard-count-val" class="font-orbitron text-sm font-bold text-amber-300">0</span>
+                </div>
+                <button id="btn-pause" class="glass-panel w-9 h-9 rounded-full flex items-center justify-center text-slate-200 hover:text-cyan-400 active:scale-90 transition hidden" title="Pause Game">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                </button>
+                <button id="btn-export-guide" class="glass-panel px-2.5 py-1.5 rounded-full flex items-center gap-1 text-xs font-semibold text-emerald-300 border border-emerald-400/40 hover:bg-emerald-500/20 active:scale-95 transition" title="How to Publish to Play Store">
+                    <span>📦</span>
+                    <span class="hidden sm:inline">Play Store</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- MAIN MENU OVERLAY -->
+        <div id="menu-screen" class="absolute inset-0 flex flex-col justify-between p-6 pt-20 pb-8 z-20 pointer-events-none">
+            <!-- Game Logo -->
+            <div class="text-center mt-4">
+                <div class="inline-block px-3 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-300 text-[10px] font-orbitron tracking-widest uppercase mb-2">
+                    Hyper-Casual Slingshot Arcade
+                </div>
+                <h1 class="font-orbitron text-4xl sm:text-5xl font-black tracking-tight text-white neon-text-cyan leading-none">
+                    NEON ORBIT
+                </h1>
+                <h2 class="font-orbitron text-lg font-bold tracking-[0.25em] text-pink-500 neon-text-pink mt-1">
+                    GRAVITY DASH
+                </h2>
+            </div>
+
+            <!-- Center Interactive Hint -->
+            <div class="flex flex-col items-center my-auto pointer-events-auto">
+                <button id="btn-play" class="neon-btn-primary text-slate-950 font-orbitron font-black text-xl px-10 py-4 rounded-full tracking-wider animate-pulse-slow flex items-center gap-3 cursor-pointer">
+                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    TAP TO PLAY
+                </button>
+                <p class="text-xs text-slate-400 mt-3 text-center max-w-[230px]">
+                    Tap anywhere to launch tangentially from node to node. Avoid red hazards!
+                </p>
+            </div>
+
+            <!-- Bottom Navigation Bar -->
+            <div class="grid grid-cols-3 gap-3 pointer-events-auto">
+                <button id="btn-open-shop" class="glass-panel py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 hover:border-cyan-400/50 active:scale-95 transition">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-400 to-fuchsia-500 flex items-center justify-center shadow-md">
+                        <span class="text-xs">✨</span>
+                    </div>
+                    <span class="font-orbitron text-[11px] font-bold text-slate-200">SKINS</span>
+                </button>
+
+                <button id="btn-toggle-audio" class="glass-panel py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 hover:border-cyan-400/50 active:scale-95 transition">
+                    <span id="icon-audio" class="text-lg">🔊</span>
+                    <span id="label-audio" class="font-orbitron text-[11px] font-bold text-slate-200">SOUND ON</span>
+                </button>
+
+                <button id="btn-toggle-haptics" class="glass-panel py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1 hover:border-cyan-400/50 active:scale-95 transition">
+                    <span id="icon-haptics" class="text-lg">📳</span>
+                    <span id="label-haptics" class="font-orbitron text-[11px] font-bold text-slate-200">VIBRATE ON</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- GAME OVER MODAL -->
+        <div id="gameover-screen" class="
+            absolute inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 z-30 hidden
+        ">
+            <div class="glass-panel w-full max-w-sm rounded-3xl p-6 text-center border border-pink-500/40 shadow-2xl">
+                <div id="new-best-badge" class="hidden inline-block px-3 py-0.5 rounded-full bg-amber-400/20 border border-amber-400 text-amber-300 font-orbitron text-[10px] font-bold tracking-widest uppercase mb-2">
+                    ★ NEW RECORD ★
+                </div>
+                <h2 class="font-orbitron text-3xl font-black text-white neon-text-pink">SIGNAL LOST</h2>
+                <p id="death-reason" class="text-xs text-slate-400 mt-1 mb-5">Drifted into deep space</p>
+
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
+                        <div class="text-[10px] text-slate-400 font-semibold uppercase">SCORE</div>
+                        <div id="go-score" class="font-orbitron text-2xl font-black text-cyan-400 mt-0.5">0</div>
+                    </div>
+                    <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
+                        <div class="text-[10px] text-slate-400 font-semibold uppercase">BEST</div>
+                        <div id="go-best" class="font-orbitron text-2xl font-black text-white mt-0.5">0</div>
+                    </div>
+                </div>
+
+                <!-- Bonus Shard Reward Button -->
+                <button id="btn-claim-bonus" class="w-full py-2.5 px-4 mb-3 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-300 font-orbitron text-xs font-bold flex items-center justify-center gap-2 hover:bg-amber-500/30 active:scale-95 transition">
+                    <span>⚡</span> CLAIM +25 BONUS SHARDS
+                </button>
+
+                <button id="btn-retry" class="neon-btn-primary w-full py-3.5 rounded-2xl font-orbitron font-black text-slate-950 text-lg tracking-wider mb-3">
+                    PLAY AGAIN
+                </button>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btn-go-menu" class="py-2.5 rounded-xl bg-slate-800/80 text-slate-300 font-orbitron text-xs font-bold hover:bg-slate-700 active:scale-95 transition">
+                        MAIN MENU
+                    </button>
+                    <button id="btn-go-shop" class="py-2.5 rounded-xl bg-slate-800/80 text-cyan-300 font-orbitron text-xs font-bold hover:bg-slate-700 active:scale-95 transition">
+                        SKIN SHOP
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- COSMETICS / SKIN SHOP MODAL -->
+        <div id="shop-modal" class="absolute inset-0 bg-slate-950/90 backdrop-blur-lg flex flex-col p-5 z-40 hidden">
+            <div class="flex justify-between items-center pb-4 border-b border-slate-800">
+                <div>
+                    <h2 class="font-orbitron text-xl font-black text-white neon-text-cyan">CORE ARMORY</h2>
+                    <p class="text-xs text-slate-400">Unlock custom neon orbs & particle trails</p>
+                </div>
+                <button id="btn-close-shop" class="w-9 h-9 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold hover:bg-slate-700">✕</button>
+            </div>
+
+            <!-- Shard Balance Bar -->
+            <div class="my-3 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-400/30 flex justify-between items-center">
+                <span class="text-xs text-amber-200 font-medium">Available Star Shards:</span>
+                <div class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15,9 22,12 15,15 12,22 9,15 2,12 9,9"/></svg>
+                    <span id="shop-shard-balance" class="font-orbitron font-bold text-amber-300">0</span>
+                </div>
+            </div>
+
+            <!-- Skins Grid -->
+            <div id="skins-grid" class="grid grid-cols-2 gap-3 overflow-y-auto flex-1 pr-1 py-1">
+                <!-- Populated dynamically via JS -->
+            </div>
+        </div>
+
+        <!-- PLAY STORE EXPORT GUIDE MODAL -->
+        <div id="export-modal" class="absolute inset-0 bg-slate-950/95 backdrop-blur-lg flex flex-col p-5 z-50 hidden">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-800">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📦</span>
+                    <div>
+                        <h2 class="font-orbitron text-base font-black text-emerald-400">PLAY STORE LAUNCH GUIDE</h2>
+                        <p class="text-[11px] text-slate-400">Convert this HTML5 game into an Android .AAB</p>
+                    </div>
+                </div>
+                <button id="btn-close-export" class="w-8 h-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold hover:bg-slate-700">✕</button>
+            </div>
+
+            <div class="overflow-y-auto flex-1 space-y-4 my-3 pr-1 text-xs leading-relaxed text-slate-300">
+                <div class="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-200">
+                    <strong>Ready for Mobile Wrapping!</strong> This game is built with zero external dependencies, offline Web Audio synth sounds, `localStorage` persistence, and responsive touch controls.
+                </div>
+
+                <!-- Option 1: CapacitorJS -->
+                <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+                    <div class="font-orbitron text-cyan-400 font-bold text-sm">OPTION 1: CapacitorJS (Recommended Native App)</div>
+                    <p class="text-slate-400">Wraps your HTML file into a standalone offline Android project ready for Android Studio.</p>
+                    <ol class="list-decimal list-inside space-y-1.5 text-slate-300">
+                        <li>Save this code as <code class="text-cyan-300 bg-slate-950 px-1.5 py-0.5 rounded">dist/index.html</code> inside a new folder.</li>
+                        <li>Run these terminal commands in that folder:</li>
+                    </ol>
+                    <div class="relative bg-black/80 p-3 rounded-xl font-mono text-[11px] text-emerald-300 border border-slate-800 overflow-x-auto">
+npm init -y
+npm install @capacitor/core @capacitor/cli @capacitor/android
+npx cap init "Neon Orbit" com.yourstudio.neonorbit --web-dir dist
+npx cap add android
+npx cap open android</div>
+                    <button id="btn-copy-cap" class="w-full py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 font-semibold text-xs hover:bg-cyan-500/30 transition">
+                        📋 Copy Capacitor CLI Commands
+                    </button>
+                </div>
+
+                <!-- Option 2: PWABuilder -->
+                <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+                    <div class="font-orbitron text-fuchsia-400 font-bold text-sm">OPTION 2: PWABuilder (No-Code Cloud Build)</div>
+                    <ol class="list-decimal list-inside space-y-1.5 text-slate-300">
+                        <li>Host this single HTML file for free on <strong>GitHub Pages</strong>, <strong>Netlify</strong>, or <strong>Vercel</strong>.</li>
+                        <li>Visit <strong>pwabuilder.com</strong> and paste your live game URL.</li>
+                        <li>Click <strong>Package for Store → Android</strong> and download the signed <code class="text-fuchsia-300">.aab</code> (Android App Bundle) & signing key.</li>
+                    </ol>
+                </div>
+
+                <!-- Step 3: Google Play Console -->
+                <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+                    <div class="font-orbitron text-amber-400 font-bold text-sm">STEP 3: Upload to Google Play Console</div>
+                    <ul class="list-disc list-inside space-y-1 text-slate-300">
+                        <li>In Android Studio, click <strong>Build → Generate Signed Bundle / APK → Android App Bundle (.aab)</strong>.</li>
+                        <li>Log into <strong>play.google.com/console</strong> ($25 one-time developer registration).</li>
+                        <li>Create a new App, upload your <code class="text-amber-300">.aab</code> under <strong>Production</strong> or <strong>Internal Testing</strong>, and submit!</li>
+                    </ul>
+                </div>
+            </div>
+
+            <button id="btn-done-export" class="w-full py-3 rounded-xl bg-emerald-500 text-slate-950 font-orbitron font-bold text-xs tracking-wider">
+                GOT IT, BACK TO GAME
+            </button>
+        </div>
+
+        <!-- TOAST NOTIFICATION -->
+        <div id="toast-msg" class="absolute top-16 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-cyan-500 text-slate-950 font-orbitron font-bold text-xs shadow-lg pointer-events-none opacity-0 transition-opacity duration-300 z-50">
+            Copied to clipboard!
+        </div>
+
+    </div>
+</div>
+
+<script>
+/**
+ * NEON ORBIT: GRAVITY DASH
+ * Complete Mobile-First HTML5 Arcade Game
+ */
+
+// ==========================================
+// 1. COSMETIC SKINS CATALOG & STORAGE
+// ==========================================
+const SKINS = [
+    {
+        id: 'cyber_cyan',
+        name: 'Cyber Cyan',
+        price: 0,
+        coreColor: '#ffffff',
+        glowColor: '#00f3ff',
+        trailColor: '#00f3ff',
+        desc: 'Standard issue hyper-drive core.'
+    },
+    {
+        id: 'solar_flare',
+        name: 'Solar Flare',
+        price: 50,
+        coreColor: '#fffbeb',
+        glowColor: '#ff6b00',
+        trailColor: '#ffaa00',
+        desc: 'Blazing plasma forged in a supernova.'
+    },
+    {
+        id: 'void_purple',
+        name: 'Void Phantom',
+        price: 100,
+        coreColor: '#f3e8ff',
+        glowColor: '#a855f7',
+        trailColor: '#d946ef',
+        desc: 'Harnesses dark matter gravitational waves.'
+    },
+    {
+        id: 'emerald_matrix',
+        name: 'Emerald Matrix',
+        price: 150,
+        coreColor: '#ecfdf5',
+        glowColor: '#10b981',
+        trailColor: '#34d399',
+        desc: 'Overclocked bio-digital energy pulse.'
+    },
+    {
+        id: 'crimson_valkyrie',
+        name: 'Crimson Nova',
+        price: 250,
+        coreColor: '#ffe4e6',
+        glowColor: '#f43f5e',
+        trailColor: '#fb7185',
+        desc: 'High-velocity tactical redshift drive.'
+    },
+    {
+        id: 'rainbow_prism',
+        name: 'Hyper Prism',
+        price: 400,
+        coreColor: '#ffffff',
+        glowColor: '#00f3ff',
+        trailColor: 'rainbow',
+        desc: 'Chromatic spectrum trail that shifts hues.'
+    }
+];
+
+const STORAGE_KEY = 'neon_orbit_save_v1';
+let saveData = {
+    highScore: 0,
+    shards: 40, // Starter shards so player is close to first unlock
+    unlockedSkins: ['cyber_cyan'],
+    equippedSkin: 'cyber_cyan',
+    soundEnabled: true,
+    hapticsEnabled: true
+};
+
+function loadSaveData() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            saveData = { ...saveData, ...parsed };
+        }
+    } catch (e) {
+        console.warn('localStorage unavailable, using memory state.');
+    }
+    updateTopUI();
+}
+
+function writeSaveData() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+    } catch (e) {}
+    updateTopUI();
+}
+
+function getEquippedSkinObj() {
+    return SKINS.find(s => s.id === saveData.equippedSkin) || SKINS[0];
+}
+
+// ==========================================
+// 2. PROCEDURAL WEB AUDIO SYNTHESIZER
+// ==========================================
+class SynthAudio {
+    constructor() {
+        this.ctx = null;
+    }
+
+    init() {
+        if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    playJump() {
+        if (!saveData.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(680, now + 0.14);
+
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+    }
+
+    playLatch(combo = 1) {
+        if (!saveData.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const baseFreq = 320 + Math.min(combo * 55, 500);
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.setValueAtTime(baseFreq * 1.25, now + 0.05);
+
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+    }
+
+    playShard() {
+        if (!saveData.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.setValueAtTime(1320, now + 0.06);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.22);
+    }
+
+    playUnlock() {
+        if (!saveData.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, idx) => {
+            const now = this.ctx.currentTime + idx * 0.06;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.18);
+        });
+    }
+
+    playCrash() {
+        if (!saveData.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(190, now);
+        osc.frequency.exponentialRampToValueAtTime(42, now + 0.38);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.4);
+    }
+}
+
+const audio = new SynthAudio();
+
+function triggerHaptic(ms = 18) {
+    if (saveData.hapticsEnabled && navigator.vibrate) {
+        try { navigator.vibrate(ms); } catch (e) {}
+    }
+}
+
+// ==========================================
+// 3. GAME ENGINE & ENTITIES
+// ==========================================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let cw = 400;
+let ch = 700;
+
+function resizeCanvas() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cw = rect.width;
+    ch = rect.height;
+    canvas.width = cw * dpr;
+    canvas.height = ch * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas);
+
+// Game States: 'MENU', 'PLAYING', 'PAUSED', 'GAMEOVER'
+let gameState = 'MENU';
+let score = 0;
+let combo = 1;
+let orbitRotations = 0;
+let cameraY = 0;
+let targetCameraY = 0;
+let shakeTime = 0;
+let shakeMagnitude = 0;
+let hueTick = 0;
+let bonusClaimedThisRun = false;
+
+// Entities
+let nodes = [];
+let shards = [];
+let particles = [];
+let floatingTexts = [];
+let bgStars = [];
+
+const player = {
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    radius: 9,
+    state: 'ORBITING', // 'ORBITING' | 'FLYING'
+    currentNode: null,
+    angle: 0,
+    orbitDir: 1,
+    flightSpeed: 10.5,
+    trail: []
+};
+
+function initStars() {
+    bgStars = [];
+    for (let i = 0; i < 55; i++) {
+        bgStars.push({
+            x: Math.random() * cw,
+            y: Math.random() * ch,
+            size: Math.random() * 2 + 0.6,
+            alpha: Math.random() * 0.65 + 0.15,
+            speedFactor: Math.random() * 0.35 + 0.1
+        });
+    }
+}
+
+function createNode(index, prevNode) {
+    const margin = 65;
+    let x = cw / 2;
+    let y = ch * 0.72;
+
+    if (prevNode) {
+        const verticalGap = 175 + Math.min(index * 1.5, 45);
+        y = prevNode.y - verticalGap;
+        // Ensure horizontal spread without being too extreme
+        x = margin + Math.random() * (cw - margin * 2);
+    }
+
+    const orbitRadius = index === 0 ? 52 : Math.max(40, 56 - Math.min(index * 0.4, 14));
+    const baseSpeed = 0.042 + Math.min(index * 0.0011, 0.032);
+    const dir = Math.random() > 0.5 ? 1 : -1;
+
+    // Obstacles orbiting the node on higher scores
+    const hazards = [];
+    if (index >= 2) {
+        const hazardChance = Math.min(0.25 + index * 0.03, 0.75);
+        if (Math.random() < hazardChance) {
+            const count = (index > 10 && Math.random() < 0.45) ? 2 : 1;
+            const startAngle = Math.random() * Math.PI * 2;
+            for (let c = 0; c < count; c++) {
+                hazards.push({
+                    angle: startAngle + c * Math.PI,
+                    speed: -dir * (0.024 + Math.random() * 0.015),
+                    dist: orbitRadius + 18,
+                    radius: 7
+                });
+            }
+        }
+    }
+
+    // Moving node horizontally at higher levels
+    const isMoving = index > 5 && Math.random() < 0.35;
+
+    const node = {
+        index,
+        x,
+        baseX: x,
+        y,
+        coreRadius: 14,
+        orbitRadius,
+        speed: baseSpeed,
+        dir,
+        visited: index === 0,
+        hazards,
+        isMoving,
+        movePhase: Math.random() * Math.PI * 2,
+        moveRange: Math.min(45, (cw / 2) - margin),
+        color: index % 2 === 0 ? '#00f3ff' : '#ff007f'
+    };
+
+    // Spawn collectible Star Shards between prevNode and this node
+    if (prevNode) {
+        const midX = (prevNode.x + node.x) / 2;
+        const midY = (prevNode.y + node.y) / 2;
+        shards.push({
+            x: midX + (Math.random() - 0.5) * 30,
+            y: midY + (Math.random() - 0.5) * 20,
+            radius: 10,
+            collected: false,
+            pulse: Math.random() * Math.PI
+        });
+    }
+
+    return node;
+}
+
+function resetGame() {
+    score = 0;
+    combo = 1;
+    orbitRotations = 0;
+    nodes = [];
+    shards = [];
+    particles = [];
+    floatingTexts = [];
+    bonusClaimedThisRun = false;
+
+    const firstNode = createNode(0, null);
+    nodes.push(firstNode);
+    for (let i = 1; i < 8; i++) {
+        nodes.push(createNode(i, nodes[nodes.length - 1]));
+    }
+
+    player.currentNode = firstNode;
+    player.state = 'ORBITING';
+    player.angle = -Math.PI / 2;
+    player.orbitDir = firstNode.dir;
+    player.trail = [];
+    updatePlayerOrbitPosition();
+
+    cameraY = player.y - ch * 0.7;
+    targetCameraY = cameraY;
+
+    updateHUD();
+}
+
+function updatePlayerOrbitPosition() {
+    const n = player.currentNode;
+    if (!n) return;
+    player.x = n.x + Math.cos(player.angle) * n.orbitRadius;
+    player.y = n.y + Math.sin(player.angle) * n.orbitRadius;
+}
+
+// Launch the player tangentially from the current orbit
+function launchPlayer() {
+    if (gameState !== 'PLAYING') return;
+    if (player.state !== 'ORBITING' || !player.currentNode) return;
+
+    const tangentAngle = player.angle + (player.orbitDir * Math.PI / 2);
+    player.vx = Math.cos(tangentAngle) * player.flightSpeed;
+    player.vy = Math.sin(tangentAngle) * player.flightSpeed;
+    player.state = 'FLYING';
+
+    audio.playJump();
+    triggerHaptic(14);
+    spawnParticles(player.x, player.y, getEquippedSkinObj().glowColor, 10, 2.5);
+}
+
+function spawnParticles(x, y, color, count = 16, maxSpeed = 4.5) {
+    for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = Math.random() * maxSpeed + 0.8;
+        particles.push({
+            x,
+            y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd,
+            radius: Math.random() * 3 + 1.5,
+            alpha: 1,
+            decay: Math.random() * 0.025 + 0.018,
+            color
+        });
+    }
+}
+
+function spawnFloatingText(x, y, text, color = '#00f3ff') {
+    floatingTexts.push({
+        x,
+        y,
+        text,
+        color,
+        alpha: 1,
+        vy: -1.4
+    });
+}
+
+function triggerScreenShake(mag = 6, duration = 10) {
+    shakeMagnitude = mag;
+    shakeTime = duration;
+}
+
+// ==========================================
+// 4. MAIN UPDATE LOOP
+// ==========================================
+function updateGame() {
+    hueTick = (hueTick + 2) % 360;
+
+    // Screen Shake Decay
+    if (shakeTime > 0) shakeTime--;
+
+    // Smooth Camera Follow
+    if (gameState === 'PLAYING') {
+        targetCameraY = (player.currentNode ? player.currentNode.y : player.y) - ch * 0.68;
+        cameraY += (targetCameraY - cameraY) * 0.1;
+    } else if (gameState === 'MENU') {
+        // Gentle idle camera drift on menu
+        cameraY -= 0.4;
+    }
+
+    // Update Nodes & Hazards
+    for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (n.isMoving) {
+            n.movePhase += 0.025;
+            n.x = n.baseX + Math.sin(n.movePhase) * n.moveRange;
+        }
+        for (let h of n.hazards) {
+            h.angle += h.speed;
+        }
+    }
+
+    if (gameState === 'PLAYING') {
+        if (player.state === 'ORBITING' && player.currentNode) {
+            const n = player.currentNode;
+            const dAngle = n.speed * player.orbitDir;
+            player.angle += dAngle;
+            orbitRotations += Math.abs(dAngle);
+
+            // Reset combo if player waits more than 1.25 full rotations
+            if (orbitRotations > Math.PI * 2.5 && combo > 1) {
+                combo = 1;
+                updateHUD();
+            }
+
+            updatePlayerOrbitPosition();
+
+            // Check collision with hazards on current node
+            for (let h of n.hazards) {
+                const hx = n.x + Math.cos(h.angle) * h.dist;
+                const hy = n.y + Math.sin(h.angle) * h.dist;
+                if (Math.hypot(player.x - hx, player.y - hy) < player.radius + h.radius) {
+                    endGame('Eliminated by orbital security drone');
+                    return;
+                }
+            }
+        } else if (player.state === 'FLYING') {
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // Check collectible Star Shards
+            for (let s of shards) {
+                if (!s.collected && Math.hypot(player.x - s.x, player.y - s.y) < player.radius + s.radius + 6) {
+                    s.collected = true;
+                    saveData.shards += 1;
+                    writeSaveData();
+                    audio.playShard();
+                    triggerHaptic(20);
+                    spawnParticles(s.x, s.y, '#fbbf24', 15, 3.5);
+                    spawnFloatingText(s.x, s.y, '+1 SHARD', '#fbbf24');
+                }
+            }
+
+            // Check node capture or hazard collision
+            for (let n of nodes) {
+                // Hazard check first
+                for (let h of n.hazards) {
+                    const hx = n.x + Math.cos(h.angle) * h.dist;
+                    const hy = n.y + Math.sin(h.angle) * h.dist;
+                    if (Math.hypot(player.x - hx, player.y - hy) < player.radius + h.radius) {
+                        endGame('Struck an orbital plasma mine');
+                        return;
+                    }
+                }
+
+                // Capture inside gravity ring of unvisited or different node
+                if (n !== player.currentNode) {
+                    const dist = Math.hypot(player.x - n.x, player.y - n.y);
+                    if (dist <= n.orbitRadius + 14) {
+                        // Latch onto new node!
+                        player.state = 'ORBITING';
+                        player.currentNode = n;
+                        player.angle = Math.atan2(player.y - n.y, player.x - n.x);
+
+                        // Determine natural angular momentum direction via cross product
+                        const rx = player.x - n.x;
+                        const ry = player.y - n.y;
+                        const cross = rx * player.vy - ry * player.vx;
+                        player.orbitDir = cross >= 0 ? 1 : -1;
+
+                        if (!n.visited) {
+                            n.visited = true;
+                            // Quick launch combo check
+                            if (orbitRotations < Math.PI * 1.65) {
+                                combo = Math.min(combo + 1, 8);
+                            } else {
+                                combo = 1;
+                            }
+                            orbitRotations = 0;
+
+                            const pts = 1 * combo;
+                            score += pts;
+                            audio.playLatch(combo);
+                            triggerHaptic(22);
+                            triggerScreenShake(4, 6);
+                            spawnParticles(n.x, n.y, n.color, 18, 4);
+
+                            if (combo > 1) {
+                                spawnFloatingText(n.x, n.y - 25, `PERFECT x${combo}! (+${pts})`, '#fbbf24');
+                            } else {
+                                spawnFloatingText(n.x, n.y - 20, `+${pts}`, '#00f3ff');
+                            }
+
+                            updateHUD();
+
+                            // Generate new nodes ahead & prune old ones
+                            while (nodes.length < n.index + 8) {
+                                nodes.push(createNode(nodes[nodes.length - 1].index + 1, nodes[nodes.length - 1]));
+                            }
+                        } else {
+                            audio.playLatch(1);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Check out of bounds
+            const screenY = player.y - cameraY;
+            if (
+                player.x < -30 ||
+                player.x > cw + 30 ||
+                screenY < -120 ||
+                screenY > ch + 100
+            ) {
+                endGame('Drifted into deep space');
+                return;
+            }
+        }
+
+        // Record player trail
+        player.trail.push({ x: player.x, y: player.y });
+        if (player.trail.length > 18) player.trail.shift();
+    }
+
+    // Update Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= p.decay;
+        if (p.alpha <= 0) particles.splice(i, 1);
+    }
+
+    // Update Floating Texts
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        const ft = floatingTexts[i];
+        ft.y += ft.vy;
+        ft.alpha -= 0.022;
+        if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+    }
+}
+
+// ==========================================
+// 5. RENDER PIPELINE
+// ==========================================
+function renderGame() {
+    ctx.save();
+
+    // Dynamic Background Gradient that shifts hue slightly as score climbs
+    const bgHue = (235 + Math.floor(score / 10) * 18) % 360;
+    const grad = ctx.createLinearGradient(0, 0, 0, ch);
+    grad.addColorStop(0, `hsl(${bgHue}, 65%, 5%)`);
+    grad.addColorStop(1, `hsl(${(bgHue + 25) % 360}, 60%, 9%)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, cw, ch);
+
+    // Apply Camera Shake
+    if (shakeTime > 0) {
+        const dx = (Math.random() - 0.5) * shakeMagnitude;
+        const dy = (Math.random() - 0.5) * shakeMagnitude;
+        ctx.translate(dx, dy);
+    }
+
+    // Draw Parallax Starfield
+    ctx.fillStyle = '#ffffff';
+    for (let s of bgStars) {
+        let sy = (s.y - cameraY * s.speedFactor) % ch;
+        if (sy < 0) sy += ch;
+        ctx.globalAlpha = s.alpha;
+        ctx.beginPath();
+        ctx.arc(s.x, sy, s.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Subtle Grid Lines
+    ctx.strokeStyle = 'rgba(0, 243, 255, 0.04)';
+    ctx.lineWidth = 1;
+    const gridStep = 60;
+    const offsetY = (-cameraY) % gridStep;
+    for (let x = 0; x < cw; x += gridStep) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, ch);
+        ctx.stroke();
+    }
+    for (let y = offsetY; y < ch; y += gridStep) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(cw, y);
+        ctx.stroke();
+    }
+
+    // Translate World by CameraY
+    ctx.save();
+    ctx.translate(0, -cameraY);
+
+    // Draw faint guide line connecting sequential nodes
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.setLineDash([5, 7]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (i === 0) ctx.moveTo(n.x, n.y);
+        else ctx.lineTo(n.x, n.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Draw Collectible Star Shards
+    for (let s of shards) {
+        if (s.collected) continue;
+        if (s.y - cameraY < -50 || s.y - cameraY > ch + 50) continue;
+
+        s.pulse += 0.08;
+        const r = s.radius + Math.sin(s.pulse) * 2;
+
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(s.pulse * 0.5);
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.moveTo(0, -r);
+        ctx.lineTo(r * 0.65, 0);
+        ctx.lineTo(0, r);
+        ctx.lineTo(-r * 0.65, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Draw Gravity Nodes & Hazards
+    for (let n of nodes) {
+        if (n.y - cameraY < -120 || n.y - cameraY > ch + 120) continue;
+
+        // Outer Gravity Ring
+        ctx.save();
+        ctx.strokeStyle = n.visited ? 'rgba(0, 243, 255, 0.45)' : 'rgba(255, 0, 128, 0.45)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.orbitRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Inner Core
+        ctx.shadowColor = n.visited ? '#00f3ff' : '#ff007f';
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = n.visited ? '#00f3ff' : '#ff007f';
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.coreRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core Center Highlight
+        ctx.fillStyle = '#070714';
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.coreRadius * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Draw Orbiting Red Hazards
+        for (let h of n.hazards) {
+            const hx = n.x + Math.cos(h.angle) * h.dist;
+            const hy = n.y + Math.sin(h.angle) * h.dist;
+            ctx.save();
+            ctx.shadowColor = '#ff1e42';
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = '#ff1e42';
+            ctx.beginPath();
+            ctx.arc(hx, hy, h.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(hx, hy, h.radius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    // Draw Player & Aiming Trajectory when playing
+    if (gameState === 'PLAYING' || gameState === 'PAUSED') {
+        const skin = getEquippedSkinObj();
+
+        // Aiming Laser Line while orbiting (helps player time tangential jumps)
+        if (player.state === 'ORBITING' && player.currentNode) {
+            const tangentAngle = player.angle + (player.orbitDir * Math.PI / 2);
+            const aimLen = 85;
+            const tx = player.x + Math.cos(tangentAngle) * aimLen;
+            const ty = player.y + Math.sin(tangentAngle) * aimLen;
+
+            const aimGrad = ctx.createLinearGradient(player.x, player.y, tx, ty);
+            aimGrad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+            aimGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+            ctx.strokeStyle = aimGrad;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y);
+            ctx.lineTo(tx, ty);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Player Ribbon Trail
+        for (let i = 0; i < player.trail.length; i++) {
+            const pt = player.trail[i];
+            const ratio = (i + 1) / player.trail.length;
+            ctx.fillStyle = skin.trailColor === 'rainbow'
+                ? `hsl(${(hueTick + i * 12) % 360}, 100%, 60%)`
+                : skin.trailColor;
+            ctx.globalAlpha = ratio * 0.55;
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, player.radius * ratio * 0.9, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // Player Orb Core
+        ctx.save();
+        const activeGlow = skin.trailColor === 'rainbow'
+            ? `hsl(${hueTick}, 100%, 60%)`
+            : skin.glowColor;
+        ctx.shadowColor = activeGlow;
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = activeGlow;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = skin.coreColor;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Draw Explosion Particles
+    for (let p of particles) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Draw Floating Score / Shard Popups
+    for (let ft of floatingTexts) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, ft.alpha);
+        ctx.font = '900 13px Orbitron, sans-serif';
+        ctx.fillStyle = ft.color;
+        ctx.textAlign = 'center';
+        ctx.shadowColor = ft.color;
+        ctx.shadowBlur = 8;
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+    }
+
+    ctx.restore(); // End world camera transform
+    ctx.restore(); // End screen shake transform
+}
+
+function gameLoop() {
+    if (gameState !== 'PAUSED') {
+        updateGame();
+    }
+    renderGame();
+    requestAnimationFrame(gameLoop);
+}
+
+// ==========================================
+// 6. UI, SHOP & STATE MANAGEMENT
+// ==========================================
+const hudScore = document.getElementById('hud-score');
+const hudCombo = document.getElementById('hud-combo');
+const menuBest = document.getElementById('menu-best');
+const bestScoreVal = document.getElementById('best-score-val');
+const shardCountVal = document.getElementById('shard-count-val');
+const btnPause = document.getElementById('btn-pause');
+
+const menuScreen = document.getElementById('menu-screen');
+const gameoverScreen = document.getElementById('gameover-screen');
+const shopModal = document.getElementById('shop-modal');
+const exportModal = document.getElementById('export-modal');
+
+function updateTopUI() {
+    bestScoreVal.textContent = saveData.highScore;
+    shardCountVal.textContent = saveData.shards;
+    document.getElementById('shop-shard-balance').textContent = saveData.shards;
+
+    // Audio & Haptics Toggle Labels
+    document.getElementById('icon-audio').textContent = saveData.soundEnabled ? '🔊' : '🔇';
+    document.getElementById('label-audio').textContent = saveData.soundEnabled ? 'SOUND ON' : 'MUTED';
+    document.getElementById('icon-haptics').textContent = saveData.hapticsEnabled ? '📳' : '📴';
+    document.getElementById('label-haptics').textContent = saveData.hapticsEnabled ? 'VIBRATE ON' : 'VIBRATE OFF';
+}
+
+function updateHUD() {
+    hudScore.textContent = score;
+    if (combo > 1) {
+        hudCombo.textContent = `COMBO x${combo}`;
+        hudCombo.classList.remove('hidden');
+    } else {
+        hudCombo.classList.add('hidden');
+    }
+}
+
+function startGame() {
+    audio.init();
+    resetGame();
+    gameState = 'PLAYING';
+
+    menuScreen.classList.add('hidden');
+    gameoverScreen.classList.add('hidden');
+    menuBest.classList.add('hidden');
+    hudScore.classList.remove('hidden');
+    btnPause.classList.remove('hidden');
+}
+
+function endGame(reasonText) {
+    gameState = 'GAMEOVER';
+    audio.playCrash();
+    triggerHaptic([40, 30, 60]);
+    triggerScreenShake(12, 18);
+    spawnParticles(player.x, player.y, '#ff1e42', 32, 6);
+
+    const isNewRecord = score > saveData.highScore;
+    if (isNewRecord) {
+        saveData.highScore = score;
+        writeSaveData();
+    }
+
+    document.getElementById('death-reason').textContent = reasonText;
+    document.getElementById('go-score').textContent = score;
+    document.getElementById('go-best').textContent = saveData.highScore;
+
+    const badge = document.getElementById('new-best-badge');
+    if (isNewRecord && score > 0) badge.classList.remove('hidden');
+    else badge.classList.add('hidden');
+
+    const bonusBtn = document.getElementById('btn-claim-bonus');
+    bonusBtn.classList.remove('hidden');
+
+    hudScore.classList.add('hidden');
+    hudCombo.classList.add('hidden');
+    btnPause.classList.add('hidden');
+    menuBest.classList.remove('hidden');
+
+    setTimeout(() => {
+        if (gameState === 'GAMEOVER') {
+            gameoverScreen.classList.remove('hidden');
+        }
+    }, 450);
+}
+
+function renderShop() {
+    const grid = document.getElementById('skins-grid');
+    grid.innerHTML = '';
+    document.getElementById('shop-shard-balance').textContent = saveData.shards;
+
+    SKINS.forEach(skin => {
+        const isUnlocked = saveData.unlockedSkins.includes(skin.id);
+        const isEquipped = saveData.equippedSkin === skin.id;
+
+        const card = document.createElement('div');
+        card.className = `p-3.5 rounded-2xl border flex flex-col justify-between transition ${
+            isEquipped
+                ? 'bg-cyan-950/40 border-cyan-400 shadow-lg'
+                : 'bg-slate-900/90 border-slate-800'
+        }`;
+
+        const orbStyle = skin.trailColor === 'rainbow'
+            ? 'background: linear-gradient(135deg, #00f3ff, #ff007f, #fbbf24);'
+            : `background: ${skin.glowColor}; box-shadow: 0 0 14px ${skin.glowColor};`;
+
+        card.innerHTML = `
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center" style="${orbStyle}">
+                        <div class="w-4 h-4 rounded-full bg-white"></div>
+                    </div>
+                    ${isEquipped ? '<span class="text-[10px] font-orbitron font-bold text-cyan-300 bg-cyan-500/20 px-2 py-0.5 rounded-full">EQUIPPED</span>' : ''}
+                </div>
+                <div class="font-orbitron font-bold text-sm text-white">${skin.name}</div>
+                <p class="text-[11px] text-slate-400 mt-0.5 leading-snug">${skin.desc}</p>
+            </div>
+            <button class="mt-3 w-full py-2 rounded-xl font-orbitron font-bold text-xs transition ${
+                isEquipped
+                    ? 'bg-slate-800 text-slate-400 cursor-default'
+                    : isUnlocked
+                        ? 'bg-cyan-500 text-slate-950 hover:bg-cyan-400'
+                        : saveData.shards >= skin.price
+                            ? 'bg-amber-400 text-slate-950 hover:bg-amber-300'
+                            : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+            }">
+                ${isEquipped ? 'ACTIVE' : isUnlocked ? 'EQUIP' : `UNLOCK (${skin.price} ★)`}
+            </button>
+        `;
+
+        const btn = card.querySelector('button');
+        btn.addEventListener('click', () => {
+            if (isEquipped) return;
+            if (isUnlocked) {
+                saveData.equippedSkin = skin.id;
+                writeSaveData();
+                audio.playLatch(2);
+                renderShop();
+            } else if (saveData.shards >= skin.price) {
+                saveData.shards -= skin.price;
+                saveData.unlockedSkins.push(skin.id);
+                saveData.equippedSkin = skin.id;
+                writeSaveData();
+                audio.playUnlock();
+                triggerHaptic(35);
+                renderShop();
+            } else {
+                showToast('Need more Star Shards!');
+            }
+        });
+
+        grid.appendChild(card);
+    });
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast-msg');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    setTimeout(() => {
+        t.style.opacity = '0';
+    }, 2000);
+}
+
+// ==========================================
+// 7. INPUT LISTENERS (TOUCH, MOUSE, KEYBOARD)
+// ==========================================
+canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (gameState === 'PLAYING') {
+        launchPlayer();
+    }
+});
+
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') {
+        if (gameState === 'PLAYING') {
+            e.preventDefault();
+            launchPlayer();
+        } else if (gameState === 'MENU') {
+            startGame();
+        } else if (gameState === 'GAMEOVER') {
+            startGame();
+        }
+    }
+});
+
+// UI Buttons
+document.getElementById('btn-play').addEventListener('click', startGame);
+document.getElementById('btn-retry').addEventListener('click', startGame);
+
+document.getElementById('btn-go-menu').addEventListener('click', () => {
+    gameoverScreen.classList.add('hidden');
+    menuScreen.classList.remove('hidden');
+    gameState = 'MENU';
+    resetGame();
+});
+
+document.getElementById('btn-claim-bonus').addEventListener('click', (e) => {
+    if (bonusClaimedThisRun) return;
+    bonusClaimedThisRun = true;
+    saveData.shards += 25;
+    writeSaveData();
+    audio.playUnlock();
+    e.currentTarget.classList.add('hidden');
+    showToast('+25 Star Shards Added!');
+});
+
+document.getElementById('btn-open-shop').addEventListener('click', () => {
+    renderShop();
+    shopModal.classList.remove('hidden');
+});
+
+document.getElementById('btn-go-shop').addEventListener('click', () => {
+    renderShop();
+    shopModal.classList.remove('hidden');
+});
+
+document.getElementById('btn-close-shop').addEventListener('click', () => {
+    shopModal.classList.add('hidden');
+});
+
+document.getElementById('btn-toggle-audio').addEventListener('click', () => {
+    saveData.soundEnabled = !saveData.soundEnabled;
+    writeSaveData();
+    if (saveData.soundEnabled) audio.playLatch(1);
+});
+
+document.getElementById('btn-toggle-haptics').addEventListener('click', () => {
+    saveData.hapticsEnabled = !saveData.hapticsEnabled;
+    writeSaveData();
+    if (saveData.hapticsEnabled) triggerHaptic(25);
+});
+
+btnPause.addEventListener('click', () => {
+    if (gameState === 'PLAYING') {
+        gameState = 'PAUSED';
+        showToast('Game Paused - Tap Pause to Resume');
+    } else if (gameState === 'PAUSED') {
+        gameState = 'PLAYING';
+    }
+});
+
+// Play Store Export Guide Modal
+document.getElementById('btn-export-guide').addEventListener('click', () => {
+    exportModal.classList.remove('hidden');
+});
+document.getElementById('btn-close-export').addEventListener('click', () => {
+    exportModal.classList.add('hidden');
+});
+document.getElementById('btn-done-export').addEventListener('click', () => {
+    exportModal.classList.add('hidden');
+});
+
+document.getElementById('btn-copy-cap').addEventListener('click', () => {
+    const cmd = `npm init -y\nnpm install @capacitor/core @capacitor/cli @capacitor/android\nnpx cap init "Neon Orbit" com.yourstudio.neonorbit --web-dir dist\nnpx cap add android\nnpx cap open android`;
+    const ta = document.createElement('textarea');
+    ta.value = cmd;
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand('copy');
+        showToast('CLI Commands Copied!');
+    } catch (err) {}
+    document.body.removeChild(ta);
+});
+
+// Initialize on Load
+window.onload = function () {
+    resizeCanvas();
+    loadSaveData();
+    initStars();
+    resetGame();
+    gameLoop();
+};
+</script>
+</body>
+</html>
